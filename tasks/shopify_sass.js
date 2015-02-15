@@ -24,24 +24,35 @@ module.exports = function(grunt) {
 
             // Iterate over each src file
             files.src.forEach( function(filepath, i) {
-
                 fileContents[i] = grunt.file.read(filepath);
                 var imports = {};
 
+                var dir = path.dirname(filepath);
                 /* Find all of our @imports */
                 while( match = rex.exec(fileContents[i]) ) {
-
                     // [3] double quotes, @import "_import-file.scss";
                     // [5] single quotes, @import '_import-file.scss';
-                    var importFile = path.join(path.dirname(filepath), (match[3] || match[5]));
-
-                    // Skip the file if it doesn't exist
-                    if (!grunt.file.exists(importFile)) {
-                        grunt.log.warn('File to import: "' + importFile + '" not found.');
+                    var importFileRaw = (match[3] || match[5]);
+                    var importFileParts = importFileRaw.split('/');
+                    var importDir = path.join(dir, importFileParts.slice(0,-1).join('/'));
+                    var importFile = importFileParts.slice(-1).join();
+                    var importFileForms = [
+                      path.join(importDir, importFile),
+                      path.join(importDir, importFile+".scss"),
+                      path.join(importDir, "_"+importFile+".scss"),
+                      path.join(importDir, importFile+".scss.liquid"),
+                      path.join(importDir, "_"+importFile+".scss.liquid"),
+                    ]
+                    for (var j = 0, len = importFileForms.length; j < len; j++) {
+                      if (grunt.file.exists(importFileForms[j])) {
+                        imports[match[0]] = importFileForms[j];
                         continue;
+                      }
                     }
-
-                    imports[match[0]] = importFile;
+                    // Skip the file if it doesn't exist
+                    if (!imports[match[0]]) {
+                      grunt.log.warn('File to import: "' + importFileRaw + '" not found.');
+                    }
                 }
 
                 for( var imp in imports ) {
